@@ -1,0 +1,62 @@
+[project]
+name = "gitlab-manager"
+version = "0.1.0"
+description = "Enhanced GitLab operations and automation library"
+requires-python = ">=3.8"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    {name = "Nick Tsafas", email = "ntsafas@gmail.com"}
+]
+keywords = ["gitlab", "api", "automation", "devops", "ci-cd"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "python-gitlab>=7.0.0",
+    "requests>=2.32.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+Homepage = "https://gitlab.com/tutorialprojects1/softwareprojects/gitlab-manager"
+Documentation = "https://gitlab.com/tutorialprojects1/softwareprojects/gitlab-manager/blob/main/README.md"
+Repository = "https://gitlab.com/tutorialprojects1/softwareprojects/gitlab-manager"
+Issues = "https://gitlab.com/tutorialprojects1/softwareprojects/gitlab-manager/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py38']
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
