@@ -1,4 +1,23 @@
-from .client import GitLabClient
+"""
+GitLab Manager - Enhanced GitLab operations and automation library.
 
-__all__ = ["GitLabClient"]
+A Python wrapper around python-gitlab that provides simplified,
+high-level operations for common GitLab workflows.
+"""
+
+from .client import GitLabClient
+from .exceptions import (
+    GitLabManagerError,
+    AuthenticationError,
+    ResourceNotFoundError,
+    OperationError,
+)
+
 __version__ = "0.1.0"
+__all__ = [
+    "GitLabClient",
+    "GitLabManagerError",
+    "AuthenticationError",
+    "ResourceNotFoundError",
+    "OperationError",
+]
