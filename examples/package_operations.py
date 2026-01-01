@@ -44,30 +44,30 @@ def main():
             package_name='my-test-package',
             package_version='1.0.0'
         )
-        print(f"✓ Upload successful: {result['message']}")
-        print(f"  Package: {result['package_name']} v{result['package_version']}")
-        print(f"  File: {result['file_name']}")
+        print(f"Upload successful: {result['message']}")
+        print(f"Package: {result['package_name']} v{result['package_version']}")
+        print(f"File: {result['file_name']}")
         
         # Clean up test file
         os.remove(test_file)
     except ValidationError as e:
-        print(f"✗ Validation error: {e}")
+        print(f"Validation error: {e}")
     except OperationError as e:
-        print(f"✗ Upload failed: {e}")
+        print(f"Upload failed: {e}")
     
     # Example 2: List all packages
     print("\n2. Listing all packages...")
     try:
         packages = client.packages.list(project_id)
-        print(f"✓ Found {len(packages)} packages:")
+        print(f"Found {len(packages)} packages:")
         for pkg in packages[:5]:  # Show first 5
-            print(f"  - {pkg['name']} v{pkg['version']} ({pkg['package_type']}) [ID: {pkg['id']}]")
+            print(f"- {pkg['name']} v{pkg['version']} ({pkg['package_type']}) [ID: {pkg['id']}]")
         if len(packages) > 5:
-            print(f"  ... and {len(packages) - 5} more")
+            print(f"... and {len(packages) - 5} more")
     except ResourceNotFoundError as e:
-        print(f"✗ Project not found: {e}")
+        print(f"Project not found: {e}")
     except OperationError as e:
-        print(f"✗ Listing failed: {e}")
+        print(f"Listing failed: {e}")
     
     # Example 3: Filter packages by type
     print("\n3. Filtering packages by type...")
@@ -76,15 +76,15 @@ def main():
             project_id,
             package_type='generic'
         )
-        print(f"✓ Found {len(generic_packages)} generic packages")
+        print(f"Found {len(generic_packages)} generic packages")
         
         pypi_packages = client.packages.list(
             project_id,
             package_type='pypi'
         )
-        print(f"✓ Found {len(pypi_packages)} PyPI packages")
+        print(f"Found {len(pypi_packages)} PyPI packages")
     except OperationError as e:
-        print(f"✗ Filtering failed: {e}")
+        print(f"Filtering failed: {e}")
     
     # Example 4: Get specific package details
     print("\n4. Getting package details...")
@@ -92,15 +92,15 @@ def main():
         if packages:
             package_id = packages[0]['id']
             details = client.packages.get(project_id, package_id)
-            print(f"✓ Package details:")
-            print(f"  Name: {details['name']}")
-            print(f"  Version: {details['version']}")
-            print(f"  Type: {details['package_type']}")
-            print(f"  Created: {details['created_at']}")
+            print(f"Package details:")
+            print(f"Name: {details['name']}")
+            print(f"Version: {details['version']}")
+            print(f"Type: {details['package_type']}")
+            print(f"Created: {details['created_at']}")
     except ResourceNotFoundError as e:
-        print(f"✗ Package not found: {e}")
+        print(f"Package not found: {e}")
     except OperationError as e:
-        print(f"✗ Failed to get details: {e}")
+        print(f"Failed to get details: {e}")
     
     # Example 5: Download a package
     print("\n5. Downloading a package...")
@@ -113,20 +113,23 @@ def main():
             file_name='test-package.txt',
             output_path='./downloads/'
         )
-        print(f"✓ Package downloaded to: {download_path}")
+        print(f"Package downloaded to: {download_path}")
         
         # Verify the content
         with open(download_path, 'r') as f:
             content = f.read()
-            print(f"  Content: {content.strip()}")
+            print(f"Content: {content.strip()}")
         
         # Clean up
         os.remove(download_path)
-        os.rmdir('./downloads/')
+        # Remove directory if it exists and is empty
+        downloads_dir = './downloads/'
+        if os.path.exists(downloads_dir) and not os.listdir(downloads_dir):
+            os.rmdir(downloads_dir)
     except ResourceNotFoundError as e:
-        print(f"✗ Package not found: {e}")
+        print(f"Package not found: {e}")
     except OperationError as e:
-        print(f"✗ Download failed: {e}")
+        print(f"Download failed: {e}")
     
     # Example 6: Delete a package
     print("\n6. Deleting a package...")
@@ -141,15 +144,15 @@ def main():
             package_id = packages[0]['id']
             success = client.packages.delete(project_id, package_id)
             if success:
-                print(f"✓ Package {package_id} deleted successfully")
+                print(f"Package {package_id} deleted successfully")
         else:
             print("  No package to delete")
     except ResourceNotFoundError as e:
-        print(f"✗ Package not found: {e}")
+        print(f"Package not found: {e}")
     except ValidationError as e:
-        print(f"✗ Invalid package ID: {e}")
+        print(f"Invalid package ID: {e}")
     except OperationError as e:
-        print(f"✗ Deletion failed: {e}")
+        print(f"Deletion failed: {e}")
     
     # Example 7: Upload with auto-detected name
     print("\n7. Upload with auto-detected package name...")
@@ -165,12 +168,38 @@ def main():
             project_id=project_id,
             file_path=test_file
         )
-        print(f"✓ Auto-detected package name: {result['package_name']}")
-        print(f"  Version: {result['package_version']}")
+        print(f"Auto-detected package name: {result['package_name']}")
+        print(f"Version: {result['package_version']}")
         
         os.remove(test_file)
     except Exception as e:
-        print(f"✗ Upload failed: {e}")
+        print(f"Upload failed: {e}")
+    
+    # Example 8: Duplicate checking
+    print("\n8. Testing duplicate package detection...")
+    try:
+        # Try to upload the same package from Example 7 again
+        test_file = 'my-awesome-app-2.0.tar.gz'
+        with open(test_file, 'w') as f:
+            f.write('Attempting to upload duplicate\n')
+        
+        # This should fail because we already uploaded this in Example 7
+        result = client.packages.upload(
+            project_id=project_id,
+            file_path=test_file
+            # Will auto-detect same name and version as Example 7
+        )
+        print(f"Unexpected: Upload succeeded when it should have been blocked")
+        os.remove(test_file)
+    except ValidationError as e:
+        print(f"Duplicate correctly detected and blocked!")
+        print(f"Error message: {str(e)[:80]}...")
+        if os.path.exists(test_file):
+            os.remove(test_file)
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        if os.path.exists(test_file):
+            os.remove(test_file)
     
     print("\n" + "=" * 60)
     print("Examples completed!")

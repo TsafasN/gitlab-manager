@@ -48,10 +48,12 @@ class PackageManager:
             >>> # List all packages
             >>> packages = client.packages.list('mygroup/myproject')
             >>> 
-            >>> # Filter by type
+            >>> # Filter packages by type
             >>> pypi_packages = client.packages.list('mygroup/myproject', package_type='pypi')
+            >>> for pkg in pypi_packages:
+            ...     print(f"{pkg['name']} v{pkg['version']}")
             >>> 
-            >>> # Filter by name
+            >>> # Find specific package by name
             >>> specific = client.packages.list('mygroup/myproject', package_name='my-package')
         """
         try:
@@ -174,7 +176,8 @@ class PackageManager:
         Upload a generic package to GitLab.
         
         This method uploads files to the GitLab Generic Package Registry,
-        which supports arbitrary file types.
+        which supports arbitrary file types. It checks for duplicates before
+        uploading to prevent overwriting existing packages.
         
         Args:
             project_id: Project ID or path
@@ -191,7 +194,7 @@ class PackageManager:
             - file_name: Name of the uploaded file
             
         Raises:
-            ValidationError: If file doesn't exist or parameters are invalid
+            ValidationError: If file doesn't exist, parameters are invalid, or duplicate exists
             ResourceNotFoundError: If project is not found
             OperationError: If upload fails
             
@@ -237,6 +240,14 @@ class PackageManager:
             raise ResourceNotFoundError(f"Project '{project_id}' not found: {e}")
         except Exception as e:
             raise OperationError(f"Failed to get project: {e}")
+        
+        # Check for duplicate before uploading
+        if self._check_duplicate(project, package_name, package_version, file_name):
+            raise ValidationError(
+                f"Package '{package_name}' version '{package_version}' "
+                f"with file '{file_name}' already exists. "
+                f"Please use a different version or file name."
+            )
         
         try:
             # Upload the generic package
@@ -348,3 +359,34 @@ class PackageManager:
             )
         except Exception as e:
             raise OperationError(f"Failed to download package: {e}")
+
+
+    def _check_duplicate(
+        self,
+        project,
+        package_name: str,
+        package_version: str,
+        file_name: str,
+    ) -> bool:
+        """Check if a package with the same name, version, and file already exists."""
+        try:
+            packages = project.packages.list(get_all=True)
+            
+            for pkg in packages:
+                if (pkg.name == package_name and 
+                    getattr(pkg, 'version', None) == package_version):
+                    # Check if file exists
+                    try:
+                        pkg_files = pkg.package_files.list()
+                        for pf in pkg_files:
+                            if pf.file_name == file_name:
+                                return True
+                    except:
+                        # If we can't check files, assume duplicate exists
+                        return True
+            
+            return False
+            
+        except Exception:
+            # If check fails, be conservative and report no duplicate
+            return False
