@@ -6,32 +6,19 @@ to upload, list, download, and delete packages from GitLab.
 """
 
 import os
+from utils import create_test_file, print_package_info
 from gitlabmanager import GitLabClient
+from gitlabmanager.progress import create_progress_callback
 from gitlabmanager.exceptions import (
     ResourceNotFoundError,
     ValidationError,
     OperationError,
 )
 
+project_id = 'tutorialprojects1/softwareprojects/socketprogramming'
 
-def main():
-    # Initialize the client
-    # You can use environment variables or pass tokens directly
-    client = GitLabClient(
-        url='https://gitlab.com',
-        private_token=os.environ.get('GITLAB_TOKEN')
-    )
-    
-    # Replace with your project ID or path
-    project_id = 'mygroup/myproject'
-    project_id = '52929099'
-    
-    print("=" * 60)
-    print("GitLab Package Manager Examples")
-    print("=" * 60)
-    
-    # Example 1: Upload a generic package
-    print("\n1. Uploading a package...")
+def example_basic_upload(client: GitLabClient):
+    """Basic package upload without progress tracking."""
     try:
         # Create a test file to upload
         test_file = 'test-package.txt'
@@ -44,9 +31,8 @@ def main():
             package_name='my-test-package',
             package_version='1.0.0'
         )
-        print(f"Upload successful: {result['message']}")
-        print(f"Package: {result['package_name']} v{result['package_version']}")
-        print(f"File: {result['file_name']}")
+        print_package_info(result)
+        print(f" Upload complete!")
         
         # Clean up test file
         os.remove(test_file)
@@ -54,9 +40,66 @@ def main():
         print(f"Validation error: {e}")
     except OperationError as e:
         print(f"Upload failed: {e}")
-    
-    # Example 2: List all packages
-    print("\n2. Listing all packages...")
+
+def example_upload_with_progress(client: GitLabClient):
+    """Upload a large file with progress bar."""
+    try:
+        # Create a test file
+        test_file = create_test_file(
+            filename='upload-test.tar.gz',
+            size_mb=400,  # MB
+            file_type='random'
+        )
+
+        # Create progress callback
+        callback = create_progress_callback(
+            total_bytes=os.path.getsize(filename=test_file),
+            description="Uploading large file"
+        )
+        
+        result = client.packages.upload(
+            project_id=project_id,
+            file_path=test_file,
+            package_name='large-test-package',
+            package_version='2024.1',
+            progress_callback=callback,
+        )
+        print_package_info(result)        
+        print(f" Upload complete!")
+
+        # Clean up test file
+        os.remove(test_file)
+    except ValidationError as e:
+        print(f"Validation error: {e}")
+    except OperationError as e:
+        print(f"Upload failed: {e}")
+
+def example_delete_package(client: GitLabClient, package_name: str):
+    """Delete old package versions (cleanup example)."""
+    # Find old versions to delete
+    packages = client.packages.list(
+        project_id=project_id, 
+        package_name=package_name
+    )
+    try:
+        if packages:
+            package_id = packages[0]['id']
+            if client.packages.delete(
+                project_id=project_id,
+                package_id=package_id,
+            ):
+                print(f" Package {package_id} deleted successfully") 
+        else:
+            print(" No packages found to delete.")
+            return
+    except ResourceNotFoundError as e:
+        print(f"Package not found: {e}")
+    except ValidationError as e:
+        print(f"Invalid package ID: {e}")
+    except OperationError as e:
+        print(f"Deletion failed: {e}")
+
+def example_list_packages(client: GitLabClient):
     try:
         packages = client.packages.list(project_id)
         print(f"Found {len(packages)} packages:")
@@ -68,9 +111,8 @@ def main():
         print(f"Project not found: {e}")
     except OperationError as e:
         print(f"Listing failed: {e}")
-    
-    # Example 3: Filter packages by type
-    print("\n3. Filtering packages by type...")
+
+def example_filter_packages_by_type(client: GitLabClient):    
     try:
         generic_packages = client.packages.list(
             project_id,
@@ -85,10 +127,11 @@ def main():
         print(f"Found {len(pypi_packages)} PyPI packages")
     except OperationError as e:
         print(f"Filtering failed: {e}")
-    
-    # Example 4: Get specific package details
-    print("\n4. Getting package details...")
+
+def example_get_package_details(client: GitLabClient):
     try:
+        packages = client.packages.list(project_id)
+
         if packages:
             package_id = packages[0]['id']
             details = client.packages.get(project_id, package_id)
@@ -101,9 +144,8 @@ def main():
         print(f"Package not found: {e}")
     except OperationError as e:
         print(f"Failed to get details: {e}")
-    
-    # Example 5: Download a package
-    print("\n5. Downloading a package...")
+
+def example_download_package(client: GitLabClient):
     try:
         # Download the package we uploaded earlier
         download_path = client.packages.download(
@@ -130,40 +172,14 @@ def main():
         print(f"Package not found: {e}")
     except OperationError as e:
         print(f"Download failed: {e}")
-    
-    # Example 6: Delete a package
-    print("\n6. Deleting a package...")
-    try:
-        # Find the package we want to delete
-        packages = client.packages.list(
-            project_id,
-            package_name='my-test-package'
-        )
-        
-        if packages:
-            package_id = packages[0]['id']
-            success = client.packages.delete(project_id, package_id)
-            if success:
-                print(f"Package {package_id} deleted successfully")
-        else:
-            print("  No package to delete")
-    except ResourceNotFoundError as e:
-        print(f"Package not found: {e}")
-    except ValidationError as e:
-        print(f"Invalid package ID: {e}")
-    except OperationError as e:
-        print(f"Deletion failed: {e}")
-    
-    # Example 7: Upload with auto-detected name
-    print("\n7. Upload with auto-detected package name...")
+
+def example_upload_with_auto_name(client: GitLabClient):
     try:
         # Create a file with a descriptive name
         test_file = 'my-awesome-app-2.0.tar.gz'
         with open(test_file, 'w') as f:
             f.write('App content here\n')
         
-        # Package name will be auto-detected as 'my-awesome-app-2.0'
-        # Version defaults to '1.0.0'
         result = client.packages.upload(
             project_id=project_id,
             file_path=test_file
@@ -174,9 +190,8 @@ def main():
         os.remove(test_file)
     except Exception as e:
         print(f"Upload failed: {e}")
-    
-    # Example 8: Duplicate checking
-    print("\n8. Testing duplicate package detection...")
+
+def example_duplicate_package_check(client: GitLabClient):
     try:
         # Try to upload the same package from Example 7 again
         test_file = 'my-awesome-app-2.0.tar.gz'
@@ -200,11 +215,55 @@ def main():
         print(f"Unexpected error: {e}")
         if os.path.exists(test_file):
             os.remove(test_file)
+
+def main():
+    
+    print("=" * 60)
+    print("GitLab Package Manager Examples")
+    print("=" * 60)
+
+    # Initialize the client
+    client = GitLabClient(
+        url='https://gitlab.com',
+        private_token=os.environ['GITLAB_TOKEN']
+    )
+    
+    print("\nExample: Upload a generic package...")
+    example_basic_upload(client)
+
+    print("\nExample: Upload a large file with progress bar...")
+    example_upload_with_progress(client)
+
+    print("\nExample: List all packages...")
+    example_list_packages(client)
+
+    print("\nExample: Filter packages by type...")
+    example_filter_packages_by_type(client)
+
+    print("\nExample: Get specific package details...")
+    example_get_package_details(client)
+    
+    print("\nExample: Download a package...")
+    example_download_package(client)
+
+    print("\nExample: Upload with auto-detected package name...")
+    example_upload_with_auto_name(client)
+
+    print("\nExample: Test upload duplicate package detection...")
+    example_duplicate_package_check(client)
+    
+    print("\nExample: Delete a package...")
+    example_delete_package(client, "my-test-package")
+
+    print("\nExample: Delete a large package...")
+    example_delete_package(client, "large-test-package")
+
+    print("\nExample: Delete a package...")
+    example_delete_package(client, "my-awesome-app-2")
     
     print("\n" + "=" * 60)
     print("Examples completed!")
     print("=" * 60)
-
 
 if __name__ == '__main__':
     main()
