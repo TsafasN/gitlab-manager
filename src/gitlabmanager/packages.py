@@ -2,8 +2,9 @@
 
 import gitlab
 from pathlib import Path
-from typing import Optional, List, Dict, Any
-from .exceptions import OperationError, ResourceNotFoundError, ValidationError
+from datetime import datetime
+from typing import Optional, List, Dict, Any, Callable
+from .exceptions import OperationError, ResourceNotFoundError, ValidationError, GitLabManagerError
 
 
 class PackageManager:
@@ -171,6 +172,9 @@ class PackageManager:
         package_name: Optional[str] = None,
         package_version: Optional[str] = None,
         file_name: Optional[str] = None,
+        progress_callback: Optional[Callable[[int, int], None]] = None,
+        package_type: str = "generic",
+        status: str = "default",
     ) -> Dict[str, Any]:
         """
         Upload a generic package to GitLab.
@@ -185,13 +189,20 @@ class PackageManager:
             package_name: Name of the package (defaults to filename without extension)
             package_version: Version of the package (defaults to '1.0.0')
             file_name: Name for the file in the package (defaults to original filename)
+            package_type: Type of package ('generic', 'pypi', etc.)
+            status: Package status ('default', 'hidden', 'processing')
+            progress_callback: Function(bytes_uploaded, total_bytes) for progress tracking
             
         Returns:
             Dictionary with upload results including:
             - message: Success message
             - package_name: Name of the uploaded package
             - package_version: Version of the package
+            - package_id: ID of the created package
             - file_name: Name of the uploaded file
+            - file_size: Size of the uploaded file in bytes
+            - project_id: ID of the project
+            - uploaded_at: Timestamp of upload
             
         Raises:
             ValidationError: If file doesn't exist, parameters are invalid, or duplicate exists
@@ -209,11 +220,25 @@ class PackageManager:
             ...     package_name='my-app',
             ...     package_version='2.0.0'
             ... )
+            >>>
+            >>> # Upload with progress tracking
+            >>> def show_progress(uploaded, total):
+            ...     percent = (uploaded / total) * 100
+            ...     print(f"Progress: {percent:.1f}%")
+            >>> 
+            >>> result = client.packages.upload(
+            ...     'mygroup/myproject',
+            ...     'large-file.tar.gz',
+            ...     package_version='1.0.0',
+            ...     progress_callback=show_progress
+            ... )
         """
-        # Validate file exists
+        # Validate inputs
         file_path_obj = Path(file_path)
+        
         if not file_path_obj.exists():
             raise ValidationError(f"File not found: {file_path}")
+        
         if not file_path_obj.is_file():
             raise ValidationError(f"Path is not a file: {file_path}")
         
@@ -223,7 +248,8 @@ class PackageManager:
         
         if package_name is None:
             # Use filename without extension as package name
-            package_name = file_path_obj.stem
+            # Remove all suffixes (handles .tar.gz, .tar.bz2, etc.)
+            package_name = file_path_obj.name.split('.')[0]
         
         if package_version is None:
             package_version = "1.0.0"
@@ -231,9 +257,11 @@ class PackageManager:
         # Validate package name and version
         if not package_name or not package_name.strip():
             raise ValidationError("Package name cannot be empty")
+        
         if not package_version or not package_version.strip():
             raise ValidationError("Package version cannot be empty")
         
+        # Get project
         try:
             project = self._gl.projects.get(project_id)
         except gitlab.exceptions.GitlabGetError as e:
@@ -249,24 +277,121 @@ class PackageManager:
                 f"Please use a different version or file name."
             )
         
-        try:
-            # Upload the generic package
-            project.generic_packages.upload(
-                package_name=package_name,
-                package_version=package_version,
-                file_name=file_name,
-                path=str(file_path_obj.absolute()),
+        # Upload based on package type
+        if package_type == "generic":
+            return self._upload_generic_package(
+                project,
+                file_path,
+                package_name,
+                package_version,
+                file_name,
+                status,
+                progress_callback,
             )
-            
-            return {
-                'message': 'Package uploaded successfully',
-                'package_name': package_name,
-                'package_version': package_version,
-                'file_name': file_name,
-            }
-        except Exception as e:
-            raise OperationError(f"Failed to upload package: {e}")
+        else:
+            raise NotImplementedError(
+                f"Package type '{package_type}' not yet supported. "
+                "Currently only 'generic' is implemented."
+            )
     
+    def _upload_generic_package(
+        self,
+        project,
+        file_path: str,
+        package_name: str,
+        package_version: str,
+        file_name: str,
+        status: str,
+        progress_callback: Optional[Callable[[int, int], None]],
+    ) -> Dict[str, Any]:
+        """Helper to upload a generic package with optional progress tracking."""
+
+        file_path_obj = Path(file_path)
+        file_size = file_path_obj.stat().st_size
+
+        try:
+
+            if progress_callback:
+                # Wrap file for progress tracking
+                with open(file_path, 'rb') as f:
+                    file_content = f.read()
+                
+                                # Create a file-like wrapper that tracks progress
+                import io
+                
+                class ProgressFileWrapper(io.BytesIO):
+                    """File-like object that reports upload progress."""
+                    
+                    def __init__(self, data: bytes, callback: Callable, total: int):
+                        super().__init__(data)
+                        self.callback = callback
+                        self.total = total
+                        self.bytes_read = 0
+                    
+                    def read(self, size: int = -1) -> bytes:
+                        """Read data and report progress."""
+                        chunk = super().read(size)
+                        self.bytes_read += len(chunk)
+                        if self.callback:
+                            self.callback(self.bytes_read, self.total)
+                        return chunk
+                
+                wrapper = ProgressFileWrapper(file_content, progress_callback, file_size)
+
+                # Upload with progress
+                project.generic_packages.upload(
+                    package_name=package_name,
+                    package_version=package_version,
+                    file_name=file_name,
+                    data=wrapper,
+                    status=status,
+                )
+            else:                
+                # Simple upload without progress
+                project.generic_packages.upload(
+                    package_name=package_name,
+                    package_version=package_version,
+                    file_name=file_name,
+                    path=file_path,
+                    status=status,
+                )
+
+            # Get the package ID by finding the package we just uploaded
+            package_id = None
+            try:
+                # List packages and find the one we just uploaded
+                packages = project.packages.list(
+                    package_name=package_name,
+                    order_by='created_at',
+                    sort='desc',
+                )
+                for pkg in packages:
+                    if (pkg.name == package_name and 
+                        getattr(pkg, 'version', None) == package_version):
+                        package_id = pkg.id
+                        break
+            except Exception:
+                # If we can't get the ID, that's okay - upload still succeeded
+                pass
+
+            # Return success info (after upload completes)
+            return {
+                "success": True,
+                "message": "Package uploaded successfully",
+                "package_name": package_name,
+                "package_version": package_version,
+                "package_id": package_id,
+                "file_name": file_name,
+                "file_size": file_size,
+                "project_id": project.id,
+                "uploaded_at": datetime.now().isoformat(),
+            }
+                
+        except gitlab.exceptions.GitlabUploadError as e:
+            raise OperationError(f"Upload failed: {e}") from e
+        except Exception as e:
+            raise GitLabManagerError(f"Unexpected error during upload: {e}") from e
+
     def download(
         self,
         project_id: str,
@@ -359,7 +484,6 @@ class PackageManager:
             )
         except Exception as e:
             raise OperationError(f"Failed to download package: {e}")
-
 
     def _check_duplicate(
         self,
