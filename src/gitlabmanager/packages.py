@@ -5,7 +5,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict, Any, Callable
 from .exceptions import OperationError, ResourceNotFoundError, ValidationError, GitLabManagerError
-
+from .discovery import ProjectDiscovery
 
 class PackageManager:
     """
@@ -18,6 +18,7 @@ class PackageManager:
     def __init__(self, gl: gitlab.Gitlab):
         """Initialize the package manager."""
         self._gl = gl
+        self.discover = ProjectDiscovery(gl)
     
     def list(
         self,
