@@ -19,11 +19,8 @@ class ProjectDiscovery:
     
     def list_all(
         self,
-        owned: bool = False,
-        starred: bool = False,
-        archived: bool = False,
-        visibility: Optional[str] = None,
         order_by: str = "last_activity_at",
+        starred: bool = False,
         sort: str = "desc",
         simple: bool = False,
     ) -> List[Dict[str, Any]]:
@@ -56,17 +53,13 @@ class ProjectDiscovery:
             >>> starred = client.projects.discover.list_all(starred=True)
         """
         try:
-            print("Debug: Fetching all projects with specified filters")
-
             projects = self._gl.projects.list(
+                order_by=order_by,
+                sort=sort,
+                starred=starred,
                 owned=True, 
                 get_all=True
             )
-
-            print(f"Debug: Retrieved {len(projects)} projects from GitLab")
-            
-            for p in projects:
-                print(f"Debug: Checking project {p.path_with_namespace}")
 
             return [self._project_to_dict(p, simple) for p in projects]
             
@@ -104,10 +97,10 @@ class ProjectDiscovery:
         """
         try:
             projects = self._gl.projects.list(
-                search=query,
                 order_by=order_by,
                 sort=sort,
-                get_all=True,
+                owned=True, 
+                get_all=True
             )
             
             results = []
@@ -160,6 +153,7 @@ class ProjectDiscovery:
             all_projects = self._gl.projects.list(
                 order_by=order_by,
                 sort=sort,
+                owned=True,
                 get_all=True,
             )
             
@@ -179,34 +173,6 @@ class ProjectDiscovery:
             
         except Exception as e:
             raise OperationError(f"Failed to get projects by namespace: {e}") from e
-    
-    def by_topic(
-        self,
-        topic: str,
-    ) -> List[Dict[str, Any]]:
-        """
-        Find projects by topic/tag.
-        
-        Args:
-            topic: Topic/tag name
-            
-        Returns:
-            List of projects with that topic
-            
-        Example:
-            >>> # Find all Docker-related projects
-            >>> docker_projects = client.projects.discover.by_topic('docker')
-        """
-        try:
-            projects = self._gl.projects.list(
-                topic=topic,
-                get_all=True,
-            )
-            
-            return [self._project_to_dict(p) for p in projects]
-            
-        except Exception as e:
-            raise OperationError(f"Failed to search by topic: {e}") from e
     
     def get_project_info(
         self,
@@ -251,7 +217,10 @@ class ProjectDiscovery:
             >>> projects_with_packages = client.projects.discover.list_with_packages()
         """
         try:
-            all_projects = self._gl.projects.list(get_all=True)
+            all_projects = self._gl.projects.list(
+                owned=True,
+                get_all=True)
+            
             results = []
             
             for p in all_projects:
@@ -295,6 +264,8 @@ class ProjectDiscovery:
                 order_by='last_activity_at',
                 sort='desc',
                 per_page=limit,
+                owned=True, 
+                get_all=False
             )
             
             return [self._project_to_dict(p) for p in projects]

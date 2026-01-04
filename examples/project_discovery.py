@@ -7,14 +7,9 @@ This solves the pain point: "What was that project path again?"
 import os
 from gitlabmanager import GitLabClient
 
-
-def example_list_all_projects():
+def example_list_all_projects(client: GitLabClient):
     """List all projects you have access to."""
-    client = GitLabClient(
-        url='https://gitlab.com',
-        private_token=os.environ['GITLAB_TOKEN']
-    )
-    
+
     print("All your projects:")
     print("=" * 60)
     
@@ -27,34 +22,24 @@ def example_list_all_projects():
         print(f"  URL: {project['web_url']}")
         print(f"  Last activity: {project['last_activity_at']}")
 
-
-def example_search_projects():
+def example_search_projects(client: GitLabClient):
     """Search for projects by name."""
-    client = GitLabClient(
-        url='https://gitlab.com',
-        private_token=os.environ['GITLAB_TOKEN']
-    )
-    
-    search_term = 'docker'
+
+    search_term = 'manager'
     
     print(f"Searching for projects with '{search_term}'...")
     print("=" * 60)
     
-    results = client.packages.discover.search(search_term)
+    results = client.packages.discover.search(query=search_term)
     
     print(f"\nFound {len(results)} projects:")
     for project in results:
         print(f"  - {project['path_with_namespace']}")
 
-
-def example_find_by_namespace():
+def example_find_by_namespace(client: GitLabClient):
     """Find all projects in a specific group/namespace."""
-    client = GitLabClient(
-        url='https://gitlab.com',
-        private_token=os.environ['GITLAB_TOKEN']
-    )
-    
-    namespace = 'mygroup'
+
+    namespace = 'tutorialprojects1'
     
     print(f"Projects in namespace '{namespace}':")
     print("=" * 60)
@@ -67,14 +52,9 @@ def example_find_by_namespace():
         print(f"    Stars: {project['star_count']}")
         print()
 
-
-def example_recent_activity():
+def example_recent_activity(client: GitLabClient):
     """Show projects with recent activity."""
-    client = GitLabClient(
-        url='https://gitlab.com',
-        private_token=os.environ['GITLAB_TOKEN']
-    )
-    
+
     print("Recently active projects (last 10):")
     print("=" * 60)
     
@@ -85,16 +65,11 @@ def example_recent_activity():
         print(f"   Last activity: {project['last_activity_at']}")
         print(f"   URL: {project['web_url']}")
 
-
-def example_get_project_details():
+def example_get_project_details(client: GitLabClient):
     """Get detailed information about a specific project."""
-    client = GitLabClient(
-        url='https://gitlab.com',
-        private_token=os.environ['GITLAB_TOKEN']
-    )
     
     # You can use either project ID or path
-    project_path = 'mygroup/myproject'
+    project_path = 'tutorialprojects1/softwareprojects/gitlab-manager'
     
     print(f"Project details for: {project_path}")
     print("=" * 60)
@@ -119,29 +94,8 @@ def example_get_project_details():
     if info.get('topics'):
         print(f"  Topics: {', '.join(info['topics'])}")
 
-
-def example_list_owned_projects():
-    """List only projects you own."""
-    client = GitLabClient(
-        url='https://gitlab.com',
-        private_token=os.environ['GITLAB_TOKEN']
-    )
-    
-    print("Projects you own:")
-    print("=" * 60)
-    
-    my_projects = client.packages.discover.list_all(owned=True)
-    
-    for project in my_projects:
-        print(f"  - {project['path_with_namespace']}")
-
-
-def example_list_starred_projects():
+def example_list_starred_projects(client: GitLabClient):
     """List your starred projects."""
-    client = GitLabClient(
-        url='https://gitlab.com',
-        private_token=os.environ['GITLAB_TOKEN']
-    )
     
     print("Your starred projects:")
     print("=" * 60)
@@ -153,13 +107,8 @@ def example_list_starred_projects():
         print(f"    {project['description'] or 'No description'}")
         print()
 
-
-def example_find_projects_with_packages():
+def example_find_projects_with_packages(client: GitLabClient):
     """Find projects that have packages uploaded."""
-    client = GitLabClient(
-        url='https://gitlab.com',
-        private_token=os.environ['GITLAB_TOKEN']
-    )
     
     print("Projects with packages:")
     print("=" * 60)
@@ -170,14 +119,10 @@ def example_find_projects_with_packages():
         print(f"  - {project['path_with_namespace']}")
         print(f"    Packages: {project['package_count']}")
 
-
-def example_interactive_project_selector():
+def example_interactive_project_selector(client: GitLabClient):
     """Interactive project selector - super useful!"""
-    client = GitLabClient(
-        url='https://gitlab.com',
-        private_token=os.environ['GITLAB_TOKEN']
-    )
     
+    print("=" * 60)
     print("=== Interactive Project Selector ===\n")
     
     # Search for projects
@@ -186,7 +131,7 @@ def example_interactive_project_selector():
     if search:
         projects = client.packages.discover.search(search)
     else:
-        projects = client.packages.discover.list_all(owned=True)
+        projects = client.packages.discover.list_all()
     
     if not projects:
         print("No projects found!")
@@ -203,7 +148,7 @@ def example_interactive_project_selector():
         if 1 <= choice <= len(projects):
             selected = projects[choice - 1]
             
-            print(f"\n✓ Selected: {selected['path_with_namespace']}")
+            print(f"\nSelected: {selected['path_with_namespace']}")
             print(f"  ID: {selected['id']}")
             print(f"  URL: {selected['web_url']}")
             
@@ -214,75 +159,8 @@ def example_interactive_project_selector():
     except ValueError:
         print("Invalid input!")
 
-
-def example_save_project_shortcuts():
-    """Save frequently used projects to a local file."""
-    import json
-    
-    client = GitLabClient(
-        url='https://gitlab.com',
-        private_token=os.environ['GITLAB_TOKEN']
-    )
-    
-    # Get your favorite projects
-    favorites = client.packages.discover.list_all(starred=True)
-    
-    # Save to file
-    shortcuts = {}
-    for project in favorites:
-        # Create short aliases
-        short_name = project['path'].lower()
-        shortcuts[short_name] = {
-            'id': project['id'],
-            'path': project['path_with_namespace'],
-            'url': project['web_url'],
-        }
-    
-    with open('gitlab_shortcuts.json', 'w') as f:
-        json.dump(shortcuts, f, indent=2)
-    
-    print("✓ Saved shortcuts to gitlab_shortcuts.json")
-    print("\nYour shortcuts:")
-    for name, info in shortcuts.items():
-        print(f"  {name} → {info['path']}")
-
-
-def example_use_shortcuts():
-    """Use saved shortcuts."""
-    import json
-    
-    # Load shortcuts
-    with open('gitlab_shortcuts.json', 'r') as f:
-        shortcuts = json.load(f)
-    
-    # Use shortcut
-    short_name = 'myapp'  # Instead of 'mygroup/myapp/backend'
-    
-    if short_name in shortcuts:
-        project_info = shortcuts[short_name]
-        print(f"Using project: {project_info['path']}")
-        
-        # Now upload to it
-        client = GitLabClient(
-            url='https://gitlab.com',
-            private_token=os.environ['GITLAB_TOKEN']
-        )
-        
-        result = client.packages.upload(
-            project_id=project_info['path'],  # Full path from shortcut
-            file_path='package.tar.gz',
-            package_version='1.0.0',
-        )
-        
-        print(f"✓ Uploaded to {project_info['path']}")
-
-
-def example_organize_by_namespace():
+def example_organize_by_namespace(client: GitLabClient):
     """Organize projects by namespace/group."""
-    client = GitLabClient(
-        url='https://gitlab.com',
-        private_token=os.environ['GITLAB_TOKEN']
-    )
     
     print("Projects organized by namespace:")
     print("=" * 60)
@@ -304,26 +182,43 @@ def example_organize_by_namespace():
         for project in projects:
             print(f"  └─ {project['path']}")
 
+def main():
+    
+    print("=" * 60)
+    print("GitLab Project Discovery Examples")
+    print("=" * 60)
 
-if __name__ == '__main__':
+    # Initialize the client
+    client = GitLabClient(
+        url='https://gitlab.com',
+        private_token=os.environ['GITLAB_TOKEN']
+    )
+    
     # Uncomment the example you want to run
     
     # Basic discovery
-    example_list_all_projects()
-    # example_search_projects()
-    # example_find_by_namespace()
-    # example_recent_activity()
-    # example_get_project_details()
+    print("\nExample: List all projects...")
+    example_list_all_projects(client)
+    print("\nExample: Search projects by name...")
+    example_search_projects(client)
+    print("\nExample: Find projects by namespace...")
+    example_find_by_namespace(client)
+    print("\nExample: Show recent activity...")
+    example_recent_activity(client)
+    print("\nExample: Get project details...")
+    example_get_project_details(client)
     
     # Filtering
-    # example_list_owned_projects()
-    # example_list_starred_projects()
-    # example_find_projects_with_packages()
+    print("\nExample: List starred projects...")
+    example_list_starred_projects(client)
+    print("\nExample: Find projects with packages...")
+    example_find_projects_with_packages(client)
     
     # Advanced workflows
-    # example_interactive_project_selector()
-    # example_save_project_shortcuts()
-    # example_use_shortcuts()
-    # example_organize_by_namespace()
-    
-    pass
+    print("\nExample: Interactive project selector...")
+    example_interactive_project_selector(client)
+    print("\nExample: Organize projects by namespace...")
+    example_organize_by_namespace(client)
+
+if __name__ == '__main__':
+    main()
