@@ -33,6 +33,13 @@ dev = [
     "ruff>=0.1.0",
     "mypy>=1.0.0",
 ]
+gui = [
+    "customtkinter>=5.2.0",
+]
+all = [
+    "tqdm>=4.65.0",
+    "customtkinter>=5.2.0",
+]
 
 [build-system]
 requires = ["setuptools>=65.0", "wheel"]
