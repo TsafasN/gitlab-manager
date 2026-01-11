@@ -67,14 +67,14 @@ class PackageManager:
         
         try:
             # Build filter parameters
-            filters = {}
+            list_kwargs: Dict[str, Any] = {'get_all': True}
             if package_type:
-                filters['package_type'] = package_type
+                list_kwargs['package_type'] = package_type
             if package_name:
-                filters['package_name'] = package_name
+                list_kwargs['package_name'] = package_name
             
             # Get all packages with optional filters
-            packages = project.packages.list(get_all=True, **filters)
+            packages = project.packages.list(**list_kwargs)
             
             # Return simplified package information
             return [
@@ -329,12 +329,11 @@ class PackageManager:
                         self.total = total
                         self.bytes_read = 0
                     
-                    def read(self, size: int = -1) -> bytes:
+                    def read(self, size: Optional[int] = -1) -> bytes:
                         """Read data and report progress."""
                         chunk = super().read(size)
                         self.bytes_read += len(chunk)
-                        if self.callback:
-                            self.callback(self.bytes_read, self.total)
+                        self.callback(self.bytes_read, self.total)
                         return chunk
                 
                 wrapper = ProgressFileWrapper(file_content, progress_callback, file_size)
@@ -448,15 +447,15 @@ class PackageManager:
         
         # Determine output path
         if output_path is None:
-            output_path = Path.cwd() / file_name
+            save_path = Path.cwd() / file_name
         else:
-            output_path = Path(output_path)
+            save_path = Path(output_path)
             # If output_path is a directory, append the filename
-            if output_path.is_dir():
-                output_path = output_path / file_name
+            if save_path.is_dir():
+                save_path = save_path / file_name
         
         # Ensure parent directory exists
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
         
         try:
             project = self._gl.projects.get(project_id)
@@ -474,10 +473,10 @@ class PackageManager:
             )
             
             # Write content to file
-            with open(output_path, 'wb') as f:
+            with open(save_path, 'wb') as f:
                 f.write(content)
             
-            return str(output_path.absolute())
+            return str(save_path.absolute())
         except gitlab.exceptions.GitlabGetError as e:
             raise ResourceNotFoundError(
                 f"Package '{package_name}' version '{package_version}' "
