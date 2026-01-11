@@ -1,6 +1,10 @@
 # GitLab Manager
 
-Enhanced GitLab operations and automation library - a powerful Python wrapper around python-gitlab.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python Versions](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
+[![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
+Enhanced GitLab operations and automation library - a powerful, high-level Python wrapper around `python-gitlab`.
 
 ## Features
 
@@ -9,7 +13,7 @@ Enhanced GitLab operations and automation library - a powerful Python wrapper ar
 - **CI/CD Operations**: Trigger and monitor pipelines
 - **Repository Operations**: Manage branches, tags, and repository content
 - **Simplified API**: High-level, intuitive operations for common workflows
-- **Better Error Handling**: Clear exceptions and error messages
+- **Robust Error Handling**: Clear exceptions and error messages
 
 ## Installation
 
@@ -52,7 +56,7 @@ pipeline = client.pipelines.trigger(
 
 ## Authentication
 
-You can authenticate using:
+GitLab Manager supports multiple authentication methods:
 
 1. **Personal Access Token** (recommended):
 ```python
